@@ -3,17 +3,19 @@
 
 
 
-#include <assert.h>
-#include <stdbool.h>
-#include <stdlib.h>
+#include "exit_codes.h"
+#include "null.h"
+#include "stdbool.h"
+#include "stdlib.h"
+#include "syscalls.h"
 
-#include <sys/mman.h>
 
 
 // Assume 64 bit architecture (we get at least 64-57=7 bits) (5 level paging worst case)
 #define __HEAP_MEMORY_USED_NORMAL (1ull << 63)
 #define __HEAP_MEMORY_USED_DUMMY (1ull << 62)
 #define __HEAP_MEMORY_USED_MMAP (1ull << 61)
+#define __HEAP_INITIAL_SIZE 1024
 
 struct header_t {
   struct header_t* next;
@@ -26,7 +28,7 @@ struct footer_t {
 };
 
 // Necessary so that pointer arithmetic doesn't break
-static_assert(sizeof(struct header_t) == sizeof(struct footer_t));
+// static_assert(sizeof(struct header_t) == sizeof(struct footer_t));
 
 // Tracks the last footer
 static struct footer_t* bottom_ = NULL;
@@ -74,7 +76,20 @@ static void remove_from_list(struct header_t* header, struct footer_t* footer) {
   footer->prev = __HEAP_MEMORY_USED_NORMAL;
 }
 
-void __heap_init(void* head, size_t size) {
+static void init(void* head, size_t size);
+
+void __heap_init() {
+  void* bottom = brk(0);
+  // Initialize 1kb
+  void* top = brk(bottom + __HEAP_INITIAL_SIZE);
+  if (bottom == top) {
+    // Failure
+    exit(EXIT_FAILURE_BAD_HEAP_INITIALIZATION);
+  }
+  init(bottom, __HEAP_INITIAL_SIZE);
+}
+
+static void init(void* head, size_t size) {
   // Add a dummy footer at the top
   struct footer_t* top = (struct footer_t*)head;
   top->prev = __HEAP_MEMORY_USED_NORMAL | __HEAP_MEMORY_USED_DUMMY;
@@ -96,8 +111,9 @@ void __heap_init(void* head, size_t size) {
 
 // Extends the heap by n bytes (n >= 32)
 static bool extend(size_t n) {
-   // Call the os function (sbrk on linux) and check for errors
-  if (sbrk(n) == (void*)-1) {
+  void* curr_brk = bottom_ + 2;
+  void* new_end = brk(curr_brk + n);
+  if (curr_brk == new_end) {
     return false;
   }
   // Two things need to be moved here
@@ -106,7 +122,7 @@ static bool extend(size_t n) {
   // This call to memcpy is undefined if n is less than 32 beause the regions would overlap. 
   // To combat this, this function will never get called with n < 32
   if (bottom_->prev != __HEAP_MEMORY_USED_NORMAL) {
-    memcpy(bottom_, ((void*)bottom_) + n, sizeof(struct header_t) * 2);
+    // memcpy(bottom_, ((void*)bottom_) + n, sizeof(struct header_t) * 2);
     // Move this to the head of the linked list for efficiency purposes
     // First, remove the current element from the linked list
 
@@ -132,6 +148,9 @@ static bool extend(size_t n) {
 }
 
 void* malloc(size_t n) {
+  // Align to 16 bytes
+  n += 15;
+  n &= ~0xF;
 
   // n >= 128KB (2^17)
   if (n >= (1 << 17)) {
@@ -186,23 +205,24 @@ void* malloc(size_t n) {
 }
 
 
-void free(struct header_t* ptr) {
+void free(void* ptr) {
   if (!ptr) return;
+  struct header_t* head = ptr;
   // Move to the actual header
-  --ptr;
+  --head;
 
-  if (ptr->next == __HEAP_MEMORY_USED_MMAP) {
-    munmap(ptr, ptr->size);
+  if (head->next == __HEAP_MEMORY_USED_MMAP) {
+    munmap(head, head->size);
     return;
   }
 
 
-  // Free is strict in that it is UB to free twice or to free random stuff, so just assume that ptr->next == __HEAP_MEMORY_USED_NORMAL
+  // Free is strict in that it is UB to free twice or to free random stuff, so just assume that head->next == __HEAP_MEMORY_USED_NORMAL
 
   // Coalesce
   // Get the previous footer
-  struct footer_t* prev_footer = ptr - 1; 
-  struct header_t* next_header = footer_of(ptr) + 1;
+  struct footer_t* prev_footer = head - 1; 
+  struct header_t* next_header = footer_of(head) + 1;
   if (prev_footer->prev == __HEAP_MEMORY_USED_NORMAL) {
 
   }

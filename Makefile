@@ -1,5 +1,7 @@
 CC       := gcc
+AS       := nasm
 CFLAGS   := -Wall -Wextra -Wpedantic -g -nostdlib
+ASFLAGS  := -f elf64
 INCLUDES := -Iintf
 
 SRC_DIR  := src
@@ -7,40 +9,39 @@ TEST_DIR := test
 BUILD_DIR := build
 
 LIB_NAME := mylibc
-SHARED   := $(BUILD_DIR)/lib$(LIB_NAME).so
 STATIC   := $(BUILD_DIR)/lib$(LIB_NAME).a
 
 SRCS     := $(wildcard $(SRC_DIR)/*.c)
-OBJS     := $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(SRCS))
+ASM_SRCS := $(wildcard $(SRC_DIR)/*.asm)
+OBJS     := $(patsubst $(SRC_DIR)/%.c,   $(BUILD_DIR)/%.o, $(SRCS)) \
+            $(patsubst $(SRC_DIR)/%.asm, $(BUILD_DIR)/%.o, $(ASM_SRCS))
 
 TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
 TEST_BINS := $(patsubst $(TEST_DIR)/%.c, $(BUILD_DIR)/test_%, $(TEST_SRCS))
 
-.PHONY: all shared static tests clean
+.PHONY: all static tests clean
 
-all: shared tests
+all: static tests
 
-# --- Library targets ---
-
-shared: $(SHARED)
+# --- Library target ---
 
 static: $(STATIC)
-
-$(SHARED): $(OBJS) | $(BUILD_DIR)
-	$(CC) -shared -o $@ $^
 
 $(STATIC): $(OBJS) | $(BUILD_DIR)
 	ar rcs $@ $^
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(INCLUDES) -fPIC -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
+
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.asm | $(BUILD_DIR)
+	$(AS) $(ASFLAGS) $< -o $@
 
 # --- Test targets ---
 
 tests: $(TEST_BINS)
 
-$(BUILD_DIR)/test_%: $(TEST_DIR)/%.c $(SHARED) | $(BUILD_DIR)
-	$(CC) $(CFLAGS) $(INCLUDES) $< -L$(BUILD_DIR) -l$(LIB_NAME) -Wl,-rpath,$(BUILD_DIR) -nostdlib -o $@
+$(BUILD_DIR)/test_%: $(TEST_DIR)/%.c $(STATIC) | $(BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) $< -L$(BUILD_DIR) -l$(LIB_NAME) -nostdlib -o $@
 	./$@
 
 # --- Utility ---
