@@ -1,0 +1,35 @@
+# Build outputs
+*.o
+*.a
+*.so
+*.so.*
+*.out
+*.elf
+
+# Compiled binaries / test executables
+bin/
+build/
+
+# Dependency / preprocessor outputs
+*.d
+*.i
+*.s
+
+# Debug / profiling artifacts
+*.dSYM/
+gmon.out
+callgrind.out.*
+cachegrind.out.*
+perf.data
+perf.data.old
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compile commands (can be regenerated)
+compile_commands.json
