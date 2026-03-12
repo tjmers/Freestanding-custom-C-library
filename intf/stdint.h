@@ -74,6 +74,7 @@ typedef unsigned long uint64_t;
 #endif
 
 typedef uint64_t size_t;
+typedef size_t uintptr_t;
 
 /* Limits */
 #define INT8_MIN  (-128)
