@@ -35,3 +35,18 @@ exit:
   mov rax, 0x3c
   syscall
   ret
+
+fork:
+  mov rax, 0x39
+  syscall
+  ret
+
+execve:
+  mov rax, 0x3b
+  syscall
+  ret
+
+getpid:
+  mov rax, 0x27
+  syscall
+  ret
