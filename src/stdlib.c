@@ -3,9 +3,9 @@
 
 
 
+#include "error.h"
 #include "exit_codes.h"
-#include "null.h"
-#include "stdbool.h"
+#include "stddef.h"
 #include "stdlib.h"
 #include "syscalls.h"
 
@@ -13,8 +13,7 @@
 
 // Assume 64 bit architecture (we get at least 64-57=7 bits) (5 level paging worst case)
 #define __HEAP_MEMORY_USED_NORMAL (1ull << 63)
-#define __HEAP_MEMORY_USED_DUMMY (1ull << 62)
-#define __HEAP_MEMORY_USED_MMAP (1ull << 61)
+#define __HEAP_MEMORY_USED_MMAP (1ull << 62)
 #define __HEAP_INITIAL_SIZE 1024
 
 struct header_t {
@@ -30,8 +29,8 @@ struct footer_t {
 // Necessary so that pointer arithmetic doesn't break
 // static_assert(sizeof(struct header_t) == sizeof(struct footer_t));
 
-// Tracks the last footer
-static struct footer_t* bottom_ = NULL;
+// Tracks the program break
+static void* p_brk_ = NULL;
 
 // The head of the linked list of unallocated memory
 static struct header_t* head_ = NULL;
@@ -59,8 +58,9 @@ static void insert_into_list(struct header_t* prev_head, struct header_t* curr_h
   curr_foot->prev = prev_head;
   *prev_next = curr_head;
 
-  struct footer_t** next_prev = curr_head->next == NULL ? &bottom_ : &footer_of(curr_head->next)->prev;
-  *next_prev = curr_head;
+  if (curr_head->next != NULL) {
+    footer_of(curr_head->next)->prev = curr_head;
+  }
 }
 
 // Removes the given node form the list and marks it as used
@@ -70,32 +70,34 @@ static void remove_from_list(struct header_t* header, struct footer_t* footer) {
   footer = footer == NULL ? footer_of(header) : footer;
   struct header_t** prev = footer->prev == NULL ? &head_ : &footer->prev->next;
   (*prev) = header->next;
-  struct footer_t** next = header->next == NULL ? &bottom_ : &footer_of(header->next)->prev;
-  *next = footer->prev;
-  header->next = __HEAP_MEMORY_USED_NORMAL;
-  footer->prev = __HEAP_MEMORY_USED_NORMAL;
+  if (header->next != NULL) {
+    footer_of(header->next)->prev = footer->prev;
+  }
 }
 
 static void init(void* head, size_t size);
 
 void __heap_init() {
   void* bottom = brk(0);
-  // Initialize 1kb
-  void* top = brk(bottom + __HEAP_INITIAL_SIZE);
-  if (bottom == top) {
+  // Initialize at least 1kb, but always go to the next page
+  uintptr_t top = p_brk_ + __HEAP_INITIAL_SIZE + 4095;
+  top &= ~0xfff;
+  p_brk_ = brk(top);
+  if (bottom == p_brk_) {
     // Failure
     exit(EXIT_FAILURE_BAD_HEAP_INITIALIZATION);
   }
-  init(bottom, __HEAP_INITIAL_SIZE);
+
+  init(bottom, top - (uintptr_t)bottom);
 }
 
 static void init(void* head, size_t size) {
   // Add a dummy footer at the top
   struct footer_t* top = (struct footer_t*)head;
-  top->prev = __HEAP_MEMORY_USED_NORMAL | __HEAP_MEMORY_USED_DUMMY;
+  top->prev = __HEAP_MEMORY_USED_NORMAL;
   // Add the dummy header at the bottom
   struct header_t* bottom = (struct header_t*)(head + size) - 1;
-  bottom->next = __HEAP_MEMORY_USED_NORMAL | __HEAP_MEMORY_USED_DUMMY;
+  bottom->next = __HEAP_MEMORY_USED_NORMAL;
   // Add the first header
   ++top;
   top->prev = NULL;
@@ -106,33 +108,41 @@ static void init(void* head, size_t size) {
   bottom->next = top->prev;
   // Set heap top and bottom
   head_ = top;
-  bottom_ = bottom;
 }
 
 // Extends the heap by n bytes (n >= 32)
 static bool extend(size_t n) {
-  void* curr_brk = bottom_ + 2;
-  void* new_end = brk(curr_brk + n);
-  if (curr_brk == new_end) {
+  uintptr_t new_end = p_brk_ + n;
+
+  // Pad new_end to the nearest 4kb
+  new_end += 4095;
+  new_end &= ~0xfff;
+
+  struct footer_t* bottom = (struct footer_t*)p_brk_ - 2;
+  new_end = brk(new_end);
+  if (p_brk_ == new_end) {
+    // brk fail
     return false;
   }
+  p_brk_ = new_end;
   // Two things need to be moved here
   // 1: dummy header
   // 2: last footer (above the header)
   // This call to memcpy is undefined if n is less than 32 beause the regions would overlap. 
-  // To combat this, this function will never get called with n < 32
-  if (bottom_->prev != __HEAP_MEMORY_USED_NORMAL) {
-    // memcpy(bottom_, ((void*)bottom_) + n, sizeof(struct header_t) * 2);
+  // To combat this, this function will never get called with n < 32 (prevented since its always aligned to 4kb)
+  // Conver p_brk to get bottom
+  if (bottom->prev != __HEAP_MEMORY_USED_NORMAL) {
+    memcpy_small(bottom, ((void*)bottom) + n, sizeof(struct header_t) * 2);
     // Move this to the head of the linked list for efficiency purposes
     // First, remove the current element from the linked list
 
   } else {
     // Just copy the dummy header
-    struct header_t* new_dummy_header = bottom_ + n + 1;
-    new_dummy_header = bottom_ + 1;
+    struct header_t* new_dummy_header = bottom + n + 1;
+    new_dummy_header = bottom + 1;
 
     // Now create the new header/footer (will be at head)
-    struct header_t* new_header = bottom_ + 1;
+    struct header_t* new_header = bottom + 1;
     new_header->next = head_;
     new_header->size = n - (sizeof(struct header_t) * 2);
     head_ = new_header;
@@ -142,7 +152,7 @@ static bool extend(size_t n) {
     new_footer->prev = 
     new_footer->size = new_header->size;
     // Set the new footer to the last footer
-    bottom_ = new_footer;
+    bottom = new_footer;
   }
   return true;
 }
@@ -158,8 +168,8 @@ void* malloc(size_t n) {
     // Must also allocate a header for free
     n += sizeof(struct header_t);
     // Now round up to nearest 4KB (page size)
-    n = ((n + 4095) & 0xFFFFFFFFFFFFF000);
-    // Linux kernel call
+    n = ((n + 4095) & 0xFFFFFFFFFFFFF000ull);
+    // Call mmap
     void* ptr = mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (ptr == MAP_FAILED) return NULL;
     struct header_t* header = ptr;
@@ -188,8 +198,10 @@ void* malloc(size_t n) {
         insert_into_list(current, next_header, next_footer);
       }
       // Remove the current from the linked list and mark as used
-      remove_from_list(current, NULL);
-
+      struct footer_t* footer = footer_of(current);
+      remove_from_list(current, footer);
+      current->size = __HEAP_MEMORY_USED_NORMAL;
+      footer->size = __HEAP_MEMORY_USED_NORMAL;
       // Return the memory after the header
       return current + 1;
     }
@@ -220,11 +232,81 @@ void free(void* ptr) {
   // Free is strict in that it is UB to free twice or to free random stuff, so just assume that head->next == __HEAP_MEMORY_USED_NORMAL
 
   // Coalesce
-  // Get the previous footer
+  // Get the previous footer and next header
   struct footer_t* prev_footer = head - 1; 
   struct header_t* next_header = footer_of(head) + 1;
-  if (prev_footer->prev == __HEAP_MEMORY_USED_NORMAL) {
 
+  // Add the freed node to the head of the linked list
+  insert_into_list(NULL, head, NULL);
+  if (prev_footer->prev != __HEAP_MEMORY_USED_NORMAL) {
+    struct header_t* new_head = header_of(prev_footer);
+    // This memory block cannot be the head of the list since
+    remove_from_list(new_head, prev_footer);
+    new_head->size += head_->size + 2 * sizeof(struct header_t);
+    footer_of(new_head)->size = new_head->size;
+    new_head->next = head_->next;
+    head_ = new_head;
+  }
+  if (next_header->next != __HEAP_MEMORY_USED_NORMAL) {
+    // Remove this memory block from the list and add the size of it to head
+    head_->size += next_header->size + 2 * sizeof(struct header_t);
+    remove_from_list(next_header, NULL);
+    footer_of(head_)->size = next_header->size;
   }
   return;
 }
+
+uint32_t itoa(int i, char* buffer, size_t buff_size) {
+  const char int_min[] = "-2147483684";
+  if (i == INT32_MIN) {
+    // This one needs to be treated specially since its all messed up
+
+    const char* c = int_min;
+    if (buff_size < sizeof(int_min) - 1) {
+      return 0;
+    }
+    memcpy_small(buffer, int_min, sizeof(int_min) - 1);
+  }
+
+  char* buff_start = buffer;
+
+  if (buff_size && i < 0) {
+    *buffer = '-';
+    --buff_size;
+    ++buffer;
+    i = -i;
+  }
+
+  while (buff_size && i) {
+    *buffer = (i % 10);
+    ++buffer;
+    i /= 10;
+    --buff_size;
+  }
+  return buffer - buff_start;
+}
+
+#ifdef STDLIB_TESTING
+// Test-only helpers for introspecting the allocator state.
+// These are intended to be used from unit tests and should
+// not be relied upon by production code.
+size_t __heap_free_list_length(void) {
+  size_t count = 0;
+  struct header_t* curr = head_;
+  while (curr) {
+    ++count;
+    curr = curr->next;
+  }
+  return count;
+}
+
+size_t __heap_free_total_size(void) {
+  size_t total = 0;
+  struct header_t* curr = head_;
+  while (curr) {
+    total += curr->size;
+    curr = curr->next;
+  }
+  return total;
+}
+#endif
