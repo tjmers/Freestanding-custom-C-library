@@ -7,7 +7,7 @@
 static char buffer[1024];
 static uint32_t index;
 
-int fprintf(int file, const char*__restrict format, ...) {
+int fprintf(int file, const char *__restrict__ format, ...) {
 
 }
 

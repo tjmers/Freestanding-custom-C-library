@@ -1,32 +1,24 @@
 #include "memory.h"
 
-void memcpy_small(void *__restrict__ dst, void *__restrict__ src, size_t n) {
-  void* ret = dst;
-  // Just call rep movsb
+// If FSRM is enabled, we provide an optimized NASM implementation and use a C
+// wrapper to keep the public symbol name stable.
 #ifdef FSRM
-  // First allign to 16 bytes
+extern void* memcpy_small_fsrm(void *__restrict__ dst, void *__restrict__ src, size_t n);
+#endif
 
+void* memcpy_small(void *__restrict__ dst, void *__restrict__ src, size_t n) {
+#ifdef FSRM
+  return memcpy_small_fsrm(dst, src, n);
+#else
+  void* ret = dst;
   __asm__ volatile (
-    
-    ".loop_start:\n"
-    "mov byte [rdi], [rsi]\n"
-    "inc rdi\n"
-    "inc rsi\n"
-    "cmp rdi, rdx\n"
-    "jne .loop_start\n"
     "rep movsb"
-    : "+D"(dst), "+S"(src), "+c"(n), "+d"(movsb_start)
+    : "+D"(dst), "+S"(src), "+c"(n)
     :
     : "memory"
   );
-
-#else // No FSRM
-
-
-
-
-#endif // FSRM
   return ret;
+#endif
 }
 
 // Optimized for different archetectuires
@@ -112,9 +104,9 @@ void* memcpy_large(void *__restrict__ dst, void *__restrict__ src, size_t n) {
   // SSE2 (baseline on x86-64, always present)
 #else
   // scalar fallback
-  __asm__ volatile(
-    "rep movsb",
-    : "+D"(dst), "+S"(src) "+c"(n)
+  __asm__ volatile (
+    "rep movsb"
+    : "+D"(dst), "+S"(src), "+c"(n)
     :
     : "memory"
   );

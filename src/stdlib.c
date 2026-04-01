@@ -52,7 +52,7 @@ static void insert_into_list(struct header_t* prev_head, struct header_t* curr_h
     
   // Assign each parameter a non-null value
   curr_head = curr_head == NULL ? header_of(curr_foot) : curr_head;
-  curr_foot = curr_foot == NULL ? header_of(curr_head) : curr_foot;
+  curr_foot = curr_foot == NULL ? footer_of(curr_head) : curr_foot;
   struct header_t** prev_next = prev_head ? &prev_head->next : &head_;
   curr_head->next = *prev_next;
   curr_foot->prev = prev_head;
@@ -78,12 +78,14 @@ static void remove_from_list(struct header_t* header, struct footer_t* footer) {
 static void init(void* head, size_t size);
 
 void __heap_init() {
-  void* bottom = brk(0);
+  // Move bottom to 16 byte padding so that the padding starts at 16 bytes
+  uintptr_t bottom = brk(0);
+  bottom = (bottom + 15) & ~0xF;
   // Initialize at least 1kb, but always go to the next page
-  uintptr_t top = p_brk_ + __HEAP_INITIAL_SIZE + 4095;
+  uintptr_t top = bottom + __HEAP_INITIAL_SIZE + 4095;
   top &= ~0xfff;
   p_brk_ = brk(top);
-  if (bottom == p_brk_) {
+  if (p_brk_ != top) {
     // Failure
     exit(EXIT_FAILURE_BAD_HEAP_INITIALIZATION);
   }
@@ -149,7 +151,7 @@ static bool extend(size_t n) {
 
     // Add the footer
     struct footer_t* new_footer = new_dummy_header - 1;
-    new_footer->prev = 
+    new_footer->prev = NULL;
     new_footer->size = new_header->size;
     // Set the new footer to the last footer
     bottom = new_footer;
@@ -200,8 +202,8 @@ void* malloc(size_t n) {
       // Remove the current from the linked list and mark as used
       struct footer_t* footer = footer_of(current);
       remove_from_list(current, footer);
-      current->size = __HEAP_MEMORY_USED_NORMAL;
-      footer->size = __HEAP_MEMORY_USED_NORMAL;
+      current->next = __HEAP_MEMORY_USED_NORMAL;
+      footer->prev = __HEAP_MEMORY_USED_NORMAL;
       // Return the memory after the header
       return current + 1;
     }
@@ -286,10 +288,7 @@ uint32_t itoa(int i, char* buffer, size_t buff_size) {
   return buffer - buff_start;
 }
 
-#ifdef STDLIB_TESTING
-// Test-only helpers for introspecting the allocator state.
-// These are intended to be used from unit tests and should
-// not be relied upon by production code.
+#ifdef __LIBC_TEST
 size_t __heap_free_list_length(void) {
   size_t count = 0;
   struct header_t* curr = head_;

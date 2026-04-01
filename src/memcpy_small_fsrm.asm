@@ -1,11 +1,11 @@
 bits 64
 default rel
 
-global memcpy_small
+global memcpy_small_fsrm
 
 section .text
 
-memcpy_small:
+memcpy_small_fsrm:
   ; rdi: destination index
   ; rsi: source index
   ; rdx: number of bytes to copy
@@ -13,13 +13,10 @@ memcpy_small:
   ; Just call rep movsb since this has fsrm and enhansed rep movsb
   
 
+  mov rax, rdi         ; return original dst (memcpy semantics)
   mov rcx, rdx
-  xor df, df
+  cld                  ; clear direction flag
 
 
   rep movsb
-  ; Return the number of bytes copied
-  mov rax, rdx
-  sub rax, rcx
-
   ret 
