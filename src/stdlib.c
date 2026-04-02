@@ -69,7 +69,7 @@ static void insert_into_list(struct header_t* prev_head, struct header_t* curr_h
   }
 }
 
-// Removes the given node form the list and marks it as used
+// Removes the given node form the list
 // Either header or footer may be null and the function will compute the other, but they shall not both be null
 static void remove_from_list(struct header_t* header, struct footer_t* footer) {
   header = header == NULL ? header_of(footer) : header;
@@ -112,7 +112,7 @@ static void init(void* head, size_t size) {
   // Add the first header
   ++top;
   top->prev = NULL;
-  top->size = size - (sizeof(struct header_t) * 2 + sizeof(struct footer_t));
+  top->size = size - (sizeof(struct header_t) * 4);
   // Add the first header's footer
   --bottom;
   bottom->size = top->size;
@@ -259,27 +259,32 @@ void free(void* ptr) {
 
   // Coalesce
   // Get the previous footer and next header
-  struct footer_t* prev_footer = head - 1; 
+  struct footer_t* prev_footer = (struct footer_t*)head - 1; 
   struct header_t* next_header = footer_of(head) + 1;
 
   // Add the freed node to the head of the linked list
   insert_into_list(NULL, head, NULL);
   if (prev_footer->prev != __HEAP_MEMORY_USED_NORMAL) {
     struct header_t* new_head = header_of(prev_footer);
-    // This memory block cannot be the head of the list since
+    // This memory block cannot be the head of the list since a node was just added to the head
     remove_from_list(new_head, prev_footer);
     new_head->size += head_->size + 2 * sizeof(struct header_t);
-    footer_of(new_head)->size = new_head->size;
+    struct footer_t* new_footer = footer_of(new_head);
+    new_footer->size = new_head->size;
+    new_footer->prev = NULL;
     new_head->next = head_->next;
+    // Move the head back
     head_ = new_head;
   }
   if (next_header->next != __HEAP_MEMORY_USED_NORMAL) {
     // Remove this memory block from the list and add the size of it to head
     head_->size += next_header->size + 2 * sizeof(struct header_t);
     remove_from_list(next_header, NULL);
-    footer_of(head_)->size = next_header->size;
+    struct footer_t* new_footer = footer_of(head_);
+    new_footer->size = head_->size;
+    // (its the head of the list)
+    new_footer->prev = NULL;
   }
-  return;
 }
 
 uint32_t itoa(int i, char* buffer, size_t buff_size) {
@@ -383,7 +388,9 @@ void __print_heap(void) {
   struct header_t* curr_head = heap_start_;
   struct header_t* prev_head = NULL;
   ++curr_head;
-  while ((uintptr_t)curr_head != (uintptr_t)p_brk_) {
+  const char sep[] = "----------------\n";
+  write(1, sep, sizeof(sep) - 1);
+  while ((uintptr_t)(curr_head + 1) != (uintptr_t)p_brk_) {
     // Print information about the current head
     // First address
     // (This function does not need to be efficient)
@@ -409,7 +416,7 @@ void __print_heap(void) {
     } else if (curr_head->next == NULL) {
       const char third[] = ", next: [0].\n";
       strcpy(&buffer[i], third);
-      i += sizeof(third - 1);
+      i += sizeof(third) - 1;
     } else {
       const char third[] = ", next: [start + ";
       strcpy(&buffer[i], third);
@@ -418,9 +425,13 @@ void __print_heap(void) {
       int next_diff = next_addr - heap_start_;
       i += itoa(next_diff, &buffer[i], 256 - i);
       buffer[i++] = ']';
-      buffer[i++] = '\n';
     }
-
+    if (curr_head == head_) {
+      const char head_str[] = " <------ HEAD";
+      strcpy(&buffer[i], head_str);
+      i += sizeof(head_str) - 1;
+    }
+    buffer[i++] = '\n';
     write(1, buffer, i);
     
     // Update curr_head
@@ -429,8 +440,10 @@ void __print_heap(void) {
     if (curr_head == prev_head) {
       // Infinite loop detected
       write(1, "Infinite loop detected -- terminating function.\n", 48);
+      write(1, sep, sizeof(sep) - 1);
       return;
     }
   }
+  write(1, sep, sizeof(sep) - 1);
 }
 #endif
