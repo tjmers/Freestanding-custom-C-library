@@ -30,7 +30,11 @@ static void dbg(const char* s, uint64_t n) {
 }
 
 /* String literal only — sizeof includes '\0', so length is sizeof(s) - 1 */
+#if 0
 #define DBG(s) dbg((s), sizeof(s) - 1)
+#else
+#define DBG(s) ((void)s)
+#endif
 
 // Basic sanity test: allocate and free a single block and
 // ensure the free list's aggregate size is restored.
@@ -47,7 +51,6 @@ static int test_malloc_free_round_trip(void) {
 
   DBG("test_malloc_free_round_trip: before malloc(64)");
   void* p = malloc(64);
-  __print_heap();
   DBG("test_malloc_free_round_trip: after malloc(64)");
   if (!p) {
     const char err[] = "malloc returned NULL";
