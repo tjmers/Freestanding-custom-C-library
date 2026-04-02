@@ -14,6 +14,7 @@
 // Assume 64 bit architecture (we get at least 64-57=7 bits) (5 level paging worst case)
 #define __HEAP_MEMORY_USED_NORMAL (1ull << 63)
 #define __HEAP_MEMORY_USED_MMAP (1ull << 62)
+// Minimum size (will always be page-aligned so this is actually 4kb)
 #define __HEAP_INITIAL_SIZE 1024
 
 struct header_t {
@@ -32,15 +33,20 @@ struct footer_t {
 // Tracks the program break
 static void* p_brk_ = NULL;
 
+// Only track the top if testing
+#ifdef __LIBC_TEST
+static uintptr_t heap_start_ = NULL;
+#endif
+
 // The head of the linked list of unallocated memory
 static struct header_t* head_ = NULL;
 
 static struct header_t* header_of(struct footer_t* footer) {
-  return (void*)(footer - 1) - footer->size;
+  return (char*)(footer - 1) - footer->size;
 }
 
 static struct footer_t* footer_of(struct header_t* header) {
-  return (void*)(header + 1) + header->size;
+  return (char*)(header + 1) + header->size;
 }
 
 /// @brief Inserts the given node into the linked list, after prev
@@ -95,6 +101,9 @@ void __heap_init() {
 
 static void init(void* head, size_t size) {
   // Add a dummy footer at the top
+#ifdef __LIBC_TEST
+  heap_start_ = (uintptr_t)head;
+#endif
   struct footer_t* top = (struct footer_t*)head;
   top->prev = __HEAP_MEMORY_USED_NORMAL;
   // Add the dummy header at the bottom
@@ -108,8 +117,19 @@ static void init(void* head, size_t size) {
   --bottom;
   bottom->size = top->size;
   bottom->next = top->prev;
-  // Set heap top and bottom
+  // Set heap top
   head_ = top;
+#ifdef __LIBC_TEST
+  // Write to console
+  const char pre[] = "Heap initialized to ";
+  const char post[] = " bytes.\n";
+  char buffer[64];
+  strcpy(buffer, pre);
+  uint32_t index = sizeof(pre) - 1;
+  index += itoa((int)size, &buffer[index], 64 - index);
+  strcpy(&buffer[index], post);
+  write(1, buffer, index + sizeof(post) - 1);
+#endif
 }
 
 // Extends the heap by n bytes (n >= 32)
@@ -176,6 +196,7 @@ void* malloc(size_t n) {
     if (ptr == MAP_FAILED) return NULL;
     struct header_t* header = ptr;
     header->next = __HEAP_MEMORY_USED_MMAP;
+    // This is typically not how it works (it would usually be n - sizeof(struct header_t)) - but since headers of mmaped memory are seperate from normal heap memory this is okay.
     header->size = n;
 
     // There is no footer by design
@@ -187,14 +208,15 @@ void* malloc(size_t n) {
   while (current) {
     if (current->size >= n) {
       // Allocate here
-      if (current->size - n > sizeof(struct header_t) + sizeof(struct footer_t) + 8) { // 8 acts as a buffer so that there's not just random tiny chunks (should probably be larger)
+      if (current->size - n > sizeof(struct header_t) + sizeof(struct footer_t) + 8) { // 8 acts as a buffer so that there's not just random tiny chunks (should probably be larger) (it doesn't even actually do anything beacuse its all 16-byte aligned)
         // It can be broken up into a smaller chunk (do it)
-        struct header_t* next_header = (void*)(current + 2) + n; // + 2 because of header and footer
+        struct header_t* next_header = (char*)(current + 2) + n; // + 2 because of header and footer
         // Insert into linked list
         // First update the sizes so that footer_of and header_of work correctly
+        size_t total_block_size = current->size;
         current->size = n;
         footer_of(current)->size = n;
-        next_header->size = current->size - n - (sizeof(struct header_t) + sizeof(struct footer_t));
+        next_header->size = total_block_size - n - (sizeof(struct header_t) + sizeof(struct footer_t));
         struct footer_t* next_footer = footer_of(next_header);
         next_footer->size = next_header->size;
         insert_into_list(current, next_header, next_footer);
@@ -214,7 +236,9 @@ void* malloc(size_t n) {
   if (n < 32) {
     n = 32;
   }
-  extend(n);
+  if (!extend(n)) {
+    return NULL;
+  }
   return malloc(n);
 }
 
@@ -259,33 +283,71 @@ void free(void* ptr) {
 }
 
 uint32_t itoa(int i, char* buffer, size_t buff_size) {
-  const char int_min[] = "-2147483684";
+  if (buff_size == 0) {
+    return 0;
+  }
+  if (i == 0) {
+    buffer[0] = '0';
+    return 1;
+  }
   if (i == INT32_MIN) {
-    // This one needs to be treated specially since its all messed up
-
-    const char* c = int_min;
-    if (buff_size < sizeof(int_min) - 1) {
+    const char s[] = "-2147483648";
+    const size_t len = sizeof(s) - 1;
+    if (buff_size < len) {
       return 0;
     }
-    memcpy_small(buffer, int_min, sizeof(int_min) - 1);
+    for (size_t j = 0; j < len; ++j) {
+      buffer[j] = s[j];
+    }
+    return (uint32_t)len;
   }
 
-  char* buff_start = buffer;
-
-  if (buff_size && i < 0) {
-    *buffer = '-';
-    --buff_size;
-    ++buffer;
+  char tmp[11];
+  uint32_t ti = 0;
+  int neg = 0;
+  if (i < 0) {
+    neg = 1;
     i = -i;
   }
-
-  while (buff_size && i) {
-    *buffer = (i % 10);
-    ++buffer;
+  while (i) {
+    tmp[ti++] = (char)('0' + (i % 10));
     i /= 10;
-    --buff_size;
   }
-  return buffer - buff_start;
+  uint32_t need = ti + (uint32_t)neg;
+  if (buff_size < need) {
+    return 0;
+  }
+  uint32_t w = 0;
+  if (neg) {
+    buffer[w++] = '-';
+  }
+  while (ti) {
+    buffer[w++] = tmp[--ti];
+  }
+  return w;
+}
+
+int atoi(const char* nptr) {
+  if (nptr == NULL) {
+    return 0;
+  }
+  while (*nptr == ' ' || *nptr == '\t' || *nptr == '\n' || *nptr == '\r' || *nptr == '\f' ||
+         *nptr == '\v') {
+    ++nptr;
+  }
+  int sign = 1;
+  if (*nptr == '-') {
+    sign = -1;
+    ++nptr;
+  } else if (*nptr == '+') {
+    ++nptr;
+  }
+  int val = 0;
+  while (*nptr >= '0' && *nptr <= '9') {
+    val = val * 10 + (*nptr - '0');
+    ++nptr;
+  }
+  return sign * val;
 }
 
 #ifdef __LIBC_TEST
@@ -307,5 +369,68 @@ size_t __heap_free_total_size(void) {
     curr = curr->next;
   }
   return total;
+}
+
+uintptr_t __heap_start(void) {
+  return heap_start_;
+}
+
+uintptr_t __heap_end(void) {
+  return p_brk_;
+}
+
+void __print_heap(void) {
+  struct header_t* curr_head = heap_start_;
+  struct header_t* prev_head = NULL;
+  ++curr_head;
+  while ((uintptr_t)curr_head != (uintptr_t)p_brk_) {
+    // Print information about the current head
+    // First address
+    // (This function does not need to be efficient)
+    char buffer[256];
+    const char first[] = "[start + ";
+    uint32_t i = 0;
+    strcpy(buffer, first);
+    i += sizeof(first) - 1;
+    // Copy in the current address
+    uintptr_t curr_addr = (uintptr_t)curr_head;
+    int offset = curr_addr - heap_start_;
+    i += itoa(offset, &buffer[i], 256 - i);
+    const char second[] = "] Size: ";
+    strcpy(&buffer[i], second);
+    i += sizeof(second) - 1;
+    i += itoa((int)curr_head->size, &buffer[i], 256 - i);
+
+
+    if (curr_head->next == __HEAP_MEMORY_USED_NORMAL) {
+      const char third[] = ", memory in use.\n";
+      strcpy(&buffer[i], third);
+      i += sizeof(third) - 1;
+    } else if (curr_head->next == NULL) {
+      const char third[] = ", next: [0].\n";
+      strcpy(&buffer[i], third);
+      i += sizeof(third - 1);
+    } else {
+      const char third[] = ", next: [start + ";
+      strcpy(&buffer[i], third);
+      i += sizeof(third) - 1;
+      uintptr_t next_addr = (uintptr_t)curr_head->next;
+      int next_diff = next_addr - heap_start_;
+      i += itoa(next_diff, &buffer[i], 256 - i);
+      buffer[i++] = ']';
+      buffer[i++] = '\n';
+    }
+
+    write(1, buffer, i);
+    
+    // Update curr_head
+    prev_head = curr_head;
+    curr_head = (struct header_t*)footer_of(curr_head) + 1;
+    if (curr_head == prev_head) {
+      // Infinite loop detected
+      write(1, "Infinite loop detected -- terminating function.\n", 48);
+      return;
+    }
+  }
 }
 #endif

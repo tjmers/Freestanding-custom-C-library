@@ -14,4 +14,6 @@ uint32_t itoax(int i, char* buf, size_t buff_size);
 
 
 // Conversion functions
+int atoi(const char* nptr);
+
 #endif
