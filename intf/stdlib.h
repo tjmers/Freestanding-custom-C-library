@@ -2,7 +2,9 @@
 #define __SDTLIB_H
 
 #include "error.h"
+#include "exit.h"
 #include "stdint.h"
+
 void* malloc(size_t n);
 void free(void* ptr);
 

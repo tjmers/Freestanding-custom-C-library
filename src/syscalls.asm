@@ -4,7 +4,7 @@ global write
 global brk
 global mmap
 global munmap
-global exit
+global terminate
 
 
 section .text
@@ -31,7 +31,7 @@ munmap:
   syscall
   ret
 
-exit:
+terminate:
   mov rax, 0x3c
   syscall
   ret

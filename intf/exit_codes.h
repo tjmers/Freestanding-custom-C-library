@@ -1,8 +1,0 @@
-#ifndef __EXIT_CODES_H
-#define __EXIT_CODES_H
-
-#define EXIT_SUCCESS 0
-#define EXIT_FAILURE 1
-#define EXIT_FAILURE_BAD_HEAP_INITIALIZATION 2
-
-#endif // __EXIT_CODES_H

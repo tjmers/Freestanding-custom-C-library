@@ -4,7 +4,7 @@
 
 
 #include "error.h"
-#include "exit_codes.h"
+#include "exit.h"
 #include "stddef.h"
 #include "stdlib.h"
 #include "syscalls.h"

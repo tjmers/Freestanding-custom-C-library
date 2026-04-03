@@ -1,14 +1,29 @@
 #ifndef __STDIO_H
 #define __STDIO_H
 
-#define stdin 0
-#define stdout 1
-#define stderr 2
+#include "stdbool.h"
+#include "stdint.h"
 
+#define __STDIO_BUFFER_SIZE 1024
 
-void fflush(int file);
-int fprintf(int file, const char *__restrict__format, ...);
-inline int printf(const char *__restrict__ format, ...);
+typedef struct _File {
+  int fd_;
+  uint32_t buffer_index_;
+  char buffer_[__STDIO_BUFFER_SIZE];
+} FILE, *OutputStream;
+
+extern OutputStream stdout;
+extern OutputStream stderr;
+
+#define puts(str) (fputs(stdout, str))
+#define putc(str) (fputc(stdout, str))
+
+bool fflush(OutputStream out);
+bool fprintf(OutputStream out, const char *__restrict__format, ...);
+bool fputs(OutputStream out, const char* str);
+bool fputc(OutputStream out, char ch);
+
+void __stdio_register_streams();
 
 
 #endif

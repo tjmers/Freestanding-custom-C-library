@@ -15,7 +15,7 @@ STATIC   := $(BUILD_DIR)/lib$(LIB_NAME).a
 LIB_NAME_TEST := $(LIB_NAME)_test
 STATIC_TEST   := $(BUILD_TEST_DIR)/lib$(LIB_NAME_TEST).a
 
-CFLAGS_TEST := $(CFLAGS) -D__LIBC_TEST
+CFLAGS_TEST := $(CFLAGS) -D__LIBC_TEST -Wno-unused-function -Wno-unused-variable
 
 #
 # Collect sources recursively under src/ (POSIX).
