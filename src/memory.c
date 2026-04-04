@@ -24,6 +24,9 @@ void* memcpy_small(void *__restrict__ dst, void *__restrict__ src, size_t n) {
 // Optimized for different archetectuires
 void* memcpy_large(void *__restrict__ dst, void *__restrict__ src, size_t n) {
   void* ret = dst;
+  (void)dst;
+  (void)src;
+  (void)n;
 #if defined(__AVX512F__)
   // AVX-512 foundation available
 

@@ -1,6 +1,7 @@
 #include "../intf/exit.h"
 
 #include "../intf/stdlib.h"
+#include "../intf/string.h"
 
 
 static callback_t atexit[ATEXIT_MAX_CALLBACKS] = {0};
@@ -35,6 +36,7 @@ void exit(int exit_code) {
 
   write(1, buffer, i);
 #endif // __LIBC_TEST
+
   // Call all atexit functions in LIFO
   for (int j = n_callbacks - 1; j >= 0; --j) {
     atexit[j]();

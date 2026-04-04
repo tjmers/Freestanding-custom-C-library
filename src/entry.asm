@@ -6,7 +6,7 @@ extern __heap_init
 extern __stdio_register_streams
 extern exit
 
-global _start
+global _start:weak
 
 section .text
 

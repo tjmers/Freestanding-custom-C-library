@@ -8,8 +8,8 @@
 
 #define __STDIO_NO_BUFFER UINT32_MAX
 
-static FILE stdout_ = { 1, 0 };
-static FILE stderr_ = { 2, __STDIO_NO_BUFFER };
+static FILE stdout_ = { 1, 0, {0} };
+static FILE stderr_ = { 2, __STDIO_NO_BUFFER, {0} };
 
 
 OutputStream stdout = &stdout_;
@@ -18,7 +18,9 @@ OutputStream stderr = &stderr_;
 bool fprintf(OutputStream out, const char *__restrict__ format, ...) {
   va_list va;
   va_start(va, format);
-
+  (void)out;
+  (void)format;
+  return false;
 }
 
 bool fputs(OutputStream out, const char* str) {
@@ -48,7 +50,7 @@ bool fputc(OutputStream out, char ch) {
 }
 
 bool fflush(OutputStream file) {
-  if (file->buffer_index_ == __STDIO_NO_BUFFER, 0) {
+  if (file->buffer_index_ == __STDIO_NO_BUFFER) {
     return false;
   }
   uint32_t bytes_to_write = file->buffer_index_;
@@ -59,7 +61,8 @@ bool fflush(OutputStream file) {
 bool printf(const char *__restrict__ format, ...) {
   va_list va;
   va_start(va, format);
-
+  (void)format;
+  return false;
 }
 
 

@@ -18,4 +18,7 @@ uint32_t itoax(int i, char* buf, size_t buff_size);
 // Conversion functions
 int atoi(const char* nptr);
 
+void __malloc_lock(void);
+void __malloc_unlock(void);
+
 #endif
