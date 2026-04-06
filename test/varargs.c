@@ -21,8 +21,9 @@ void printints(int n, ...) {
   for (int i = 0; i < n; ++i) {
     int next = va_arg(args, int);
     // Print to the console
-    int n = itoa(next, buffer, 16);
-    buffer[n] = '\0';
+    int64_t tmp = (int64_t)next;
+    int written = (int)itoa(&tmp, buffer, 16);
+    buffer[written] = '\0';
     puts(buffer);
     putc(',');
   }

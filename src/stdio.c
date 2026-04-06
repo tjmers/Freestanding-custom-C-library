@@ -1,8 +1,9 @@
 #include "../intf/stdio.h"
 
 #include "../intf/exit.h"
-#include "../intf/stdint.h"
 #include "../intf/stdarg.h"
+#include "../intf/stdint.h"
+#include "../intf/stdlib.h"
 #include "../intf/string.h"
 #include "../intf/syscalls.h"
 
@@ -18,8 +19,10 @@ OutputStream stderr = &stderr_;
 bool fprintf(OutputStream out, const char *__restrict__ format, ...) {
   va_list va;
   va_start(va, format);
-  (void)out;
-  (void)format;
+
+  
+
+
   return false;
 }
 
@@ -49,6 +52,46 @@ bool fputc(OutputStream out, char ch) {
   return status;
 }
 
+bool fputi(OutputStream out, int i) {
+  int64_t v = (int64_t)i;
+  if (out->buffer_index_ == __STDIO_NO_BUFFER) {
+    char tmp[32];
+    while (true) {
+      uint32_t n = itoa(&v, tmp, sizeof(tmp));
+      if (n == 0) {
+        return false;
+      }
+      if (write(out->fd_, tmp, n) < 0) {
+        return false;
+      }
+      if (v == 0) {
+        return true;
+      }
+    }
+  }
+
+  while (true) {
+    if (out->buffer_index_ == __STDIO_BUFFER_SIZE) {
+      if (!fflush(out)) {
+        return false;
+      }
+    }
+
+    uint32_t remaining = __STDIO_BUFFER_SIZE - out->buffer_index_;
+    uint32_t n = itoa(&v, &out->buffer_[out->buffer_index_], remaining);
+    out->buffer_index_ += n;
+
+    if (v == 0) {
+      return true;
+    }
+    if (n == 0) {
+      if (!fflush(out)) {
+        return false;
+      }
+    }
+  }
+}
+
 bool fflush(OutputStream file) {
   if (file->buffer_index_ == __STDIO_NO_BUFFER) {
     return false;
@@ -57,14 +100,6 @@ bool fflush(OutputStream file) {
   file->buffer_index_ = 0;
   return write(file->fd_, file->buffer_, bytes_to_write) >= 0;
 }
-
-bool printf(const char *__restrict__ format, ...) {
-  va_list va;
-  va_start(va, format);
-  (void)format;
-  return false;
-}
-
 
 static void flush_streams() {
   // Flush stdout

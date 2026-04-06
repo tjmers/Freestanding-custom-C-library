@@ -22,6 +22,7 @@ bool fflush(OutputStream out);
 bool fprintf(OutputStream out, const char *__restrict__format, ...);
 bool fputs(OutputStream out, const char* str);
 bool fputc(OutputStream out, char ch);
+bool fputi(OutputStream out, int i);
 
 void __stdio_register_streams();
 

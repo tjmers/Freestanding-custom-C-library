@@ -17,7 +17,8 @@ void __assert_fail(const char *expr, const char *file, unsigned int line,
   write(2, m2, sizeof(m2) - 1);
   write(2, file, strlen(file));
   write(2, m3, sizeof(m3) - 1);
-  n = itoa((int)line, buf, sizeof buf);
+  int64_t tmp_line = (int64_t)line;
+  n = itoa(&tmp_line, buf, sizeof buf);
   write(2, buf, n);
   write(2, m4, sizeof(m4) - 1);
   write(2, func, strlen(func));

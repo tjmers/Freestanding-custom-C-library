@@ -29,7 +29,8 @@ void exit(int exit_code) {
   const char first[] = "Calling ";
   strcpy(buffer, first);
   i += sizeof(first) - 1;
-  i += itoa((int)n_callbacks, &buffer[i], 64 - i);
+  int64_t tmp_callbacks = (int64_t)n_callbacks;
+  i += itoa(&tmp_callbacks, &buffer[i], 64 - i);
   const char last[] = " callbacks.\n";
   strcpy(&buffer[i], last);
   i += sizeof(last) - 1;

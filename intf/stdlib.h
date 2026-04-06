@@ -8,8 +8,10 @@
 void* malloc(size_t n);
 void free(void* ptr);
 
-// Retusn the number of bytes written to the buffer
-uint32_t itoa(int i, char* buf, size_t buff_size);
+// Returns the number of bytes written to the buffer.
+// Resumable: takes the integer by pointer and updates it to the remaining
+// value not yet written (0 when complete). Useful for buffered streams.
+uint32_t itoa(int64_t* i, char* buf, size_t buff_size);
 
 uint32_t itoab(int i, char* buf, size_t buff_size);
 uint32_t itoax(int i, char* buf, size_t buff_size);

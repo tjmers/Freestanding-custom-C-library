@@ -143,7 +143,8 @@ static void init(void* head, size_t size) {
   char buffer[64];
   strcpy(buffer, pre);
   uint32_t index = sizeof(pre) - 1;
-  index += itoa((int)size, &buffer[index], 64 - index);
+  int64_t tmp_size = (int64_t)size;
+  index += itoa(&tmp_size, &buffer[index], 64 - index);
   strcpy(&buffer[index], post);
   write(1, buffer, index + sizeof(post) - 1);
 #endif
@@ -315,48 +316,114 @@ void free(void* ptr) {
   }
 }
 
-uint32_t itoa(int i, char* buffer, size_t buff_size) {
-  if (buff_size == 0) {
+uint32_t itoa(int64_t* i, char* buffer, size_t buff_size) {
+  if (i == NULL || buffer == NULL || buff_size == 0) {
     return 0;
   }
-  if (i == 0) {
+
+  // Special-case 0. This is "complete" in one write.
+  if (*i == 0) {
     buffer[0] = '0';
     return 1;
   }
-  if (i == INT32_MIN) {
-    const char s[] = "-2147483648";
-    const size_t len = sizeof(s) - 1;
-    if (buff_size < len) {
+
+  uint32_t w = 0;
+
+  // Resumable state encoding to preserve leading zeros in the remaining suffix:
+  // When we can't finish, we store: *i = INT64_MIN + (10^m + suffix), where m
+  // is the number of digits remaining (0..18) and suffix is the remaining value
+  // (0..10^m-1).
+  //
+  // This keeps normal negative inputs (e.g. -42) unambiguous: only values very
+  // close to INT64_MIN are treated as encoded state.
+
+  bool encoded = false;
+  if (*i != INT64_MIN) {
+    // Encoded values live in (INT64_MIN, INT64_MIN + 2e18], which is far from
+    // typical negative inputs but covers 10^1..10^18 encoding range.
+    const int64_t enc_limit = INT64_MIN + 2000000000000000000LL;
+    encoded = (*i < 0) && (*i <= enc_limit);
+  }
+  uint64_t v = 0;
+  uint32_t digits = 0;
+  uint64_t div = 1;
+
+  if (encoded) {
+    uint64_t u = (uint64_t)(*i - INT64_MIN);
+    // Find base = 10^m (highest power of 10 <= u).
+    uint64_t base = 1;
+    uint32_t m = 0;
+    while (base <= u / 10) {
+      base *= 10;
+      ++m;
+    }
+    v = u - base;      // remaining suffix value (may be 0)
+    digits = m;        // number of digits remaining (may be 0)
+    div = base / 10;   // highest divisor for the next digit (10^(m-1))
+    if (digits == 0) {
+      // Should only happen for base==1; treat as complete when suffix is 0.
+      *i = (int64_t)v;
       return 0;
     }
-    for (size_t j = 0; j < len; ++j) {
-      buffer[j] = s[j];
+  } else {
+    // Work with an unsigned magnitude so INT64_MIN is supported.
+    // For INT64_MIN we avoid a state where only '-' is written (since the full
+    // magnitude doesn't fit in int64_t).
+    bool neg = (*i < 0);
+    if (neg) {
+      if (buff_size < 2) {
+        return 0;
+      }
+      buffer[w++] = '-';
+      --buff_size;
+
+      int64_t sv = *i;
+      v = (uint64_t)(-(sv + 1)) + 1; // abs(sv) as uint64_t (works for INT64_MIN)
+    } else {
+      v = (uint64_t)(*i);
     }
-    return (uint32_t)len;
+
+    // Count digits and compute highest power of 10.
+    {
+      uint64_t t = v;
+      while (t) {
+        ++digits;
+        t /= 10;
+      }
+      div = 1;
+      for (uint32_t j = 1; j < digits; ++j) {
+        div *= 10;
+      }
+    }
   }
 
-  char tmp[11];
-  uint32_t ti = 0;
-  int neg = 0;
-  if (i < 0) {
-    neg = 1;
-    i = -i;
+  uint32_t k = digits;
+  if (k > buff_size) {
+    k = (uint32_t)buff_size;
   }
-  while (i) {
-    tmp[ti++] = (char)('0' + (i % 10));
-    i /= 10;
+
+  for (uint32_t j = 0; j < k; ++j) {
+    uint64_t d = v / div;
+    buffer[w++] = (char)('0' + (char)d);
+    v %= div;
+    div /= 10;
   }
-  uint32_t need = ti + (uint32_t)neg;
-  if (buff_size < need) {
-    return 0;
+
+  uint32_t remaining_digits = digits - k;
+  if (remaining_digits == 0) {
+    *i = 0;
+    return w;
   }
-  uint32_t w = 0;
-  if (neg) {
-    buffer[w++] = '-';
+
+  // Store remaining suffix with digit count preserved (leading zeros).
+  // Note: remaining_digits <= 18 because for 19-digit numbers we always write
+  // at least one digit (and for negative we also require at least one digit
+  // after '-').
+  uint64_t base = 1;
+  for (uint32_t j = 0; j < remaining_digits; ++j) {
+    base *= 10;
   }
-  while (ti) {
-    buffer[w++] = tmp[--ti];
-  }
+  *i = INT64_MIN + (int64_t)(base + v);
   return w;
 }
 
@@ -446,12 +513,13 @@ void __print_heap(void) {
     i += sizeof(first) - 1;
     // Copy in the current address
     uintptr_t curr_addr = (uintptr_t)curr_head;
-    int offset = curr_addr - heap_start_;
-    i += itoa(offset, &buffer[i], 256 - i);
+    int64_t offset = (int64_t)(curr_addr - (uintptr_t)heap_start_);
+    i += itoa(&offset, &buffer[i], 256 - i);
     const char second[] = "] Size: ";
     strcpy(&buffer[i], second);
     i += sizeof(second) - 1;
-    i += itoa((int)curr_head->size, &buffer[i], 256 - i);
+    int64_t sz = (int64_t)curr_head->size;
+    i += itoa(&sz, &buffer[i], 256 - i);
 
 
     if (curr_head->info.magic == __HEAP_MEMORY_USED_NORMAL) {
@@ -467,8 +535,8 @@ void __print_heap(void) {
       strcpy(&buffer[i], third);
       i += sizeof(third) - 1;
       uintptr_t next_addr = (uintptr_t)curr_head->info.next;
-      int next_diff = next_addr - heap_start_;
-      i += itoa(next_diff, &buffer[i], 256 - i);
+      int64_t next_diff = (int64_t)(next_addr - (uintptr_t)heap_start_);
+      i += itoa(&next_diff, &buffer[i], 256 - i);
       buffer[i++] = ']';
     }
     if (curr_head->info.magic != __HEAP_MEMORY_USED_NORMAL) {
@@ -481,8 +549,8 @@ void __print_heap(void) {
         strcpy(&buffer[i], fourth);
         i += sizeof(fourth) - 1;
         uintptr_t next_addr = (uintptr_t)curr_foot->info.prev;
-        int next_diff = next_addr - heap_start_;
-        i += itoa(next_diff, &buffer[i], 256 - i);
+        int64_t next_diff = (int64_t)(next_addr - (uintptr_t)heap_start_);
+        i += itoa(&next_diff, &buffer[i], 256 - i);
         buffer[i++] = ']';
       }
     }
