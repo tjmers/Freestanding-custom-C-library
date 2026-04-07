@@ -16,6 +16,14 @@ pid_t fork();
 void execve(const char* filename, const char *const *argv, const char *const *envp);
 pid_t getpid();
 void abort(void);
+typedef int64_t clock_t;
+struct tms {
+  clock_t tms_utime;
+  clock_t tms_stime;
+  clock_t tms_cutime;
+  clock_t tms_cstime;
+};
+clock_t times(struct tms* buf);
 
 
 #endif

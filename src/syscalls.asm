@@ -6,6 +6,7 @@ global mmap
 global munmap
 global terminate
 global abort
+global $times
 
 
 section .text
@@ -68,5 +69,10 @@ execve:
 
 getpid:
   mov rax, 0x27
+  syscall
+  ret
+
+$times:
+  mov rax, 0x64
   syscall
   ret
