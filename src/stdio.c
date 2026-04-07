@@ -17,13 +17,34 @@ OutputStream stdout = &stdout_;
 OutputStream stderr = &stderr_;
 
 bool fprintf(OutputStream out, const char *__restrict__ format, ...) {
+  char *__restrict__ cpy = strdup(format);
+  if (!cpy) return false;
   va_list va;
   va_start(va, format);
 
-  
+  char* str = strtokc(cpy, '%');
+  fputs(out, str);
 
+  while (!strtok_end()) {
+    str = strtokc(NULL, '%');
+    // Process here
+    if (str[1] == 'd') {
+      // Integer
+      if (!fputi(out, (int64_t)va_arg(va, int))) {
+        return false;
+      }
+      str = &str[2];
+    } else {
+      __builtin_unreachable();
+    }
+    if (!fputs(out, str)) {
+      free(cpy);
+      return false;
+    }
+  }
 
-  return false;
+  free(cpy);
+  return true;
 }
 
 bool fputs(OutputStream out, const char* str) {

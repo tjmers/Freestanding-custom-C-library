@@ -17,6 +17,7 @@ extern OutputStream stderr;
 
 #define puts(str) (fputs(stdout, str))
 #define putc(str) (fputc(stdout, str))
+#define printf(format, ...) fprintf(stdout, format, ##__VA_ARGS__)
 
 bool fflush(OutputStream out);
 bool fprintf(OutputStream out, const char *__restrict__format, ...);
