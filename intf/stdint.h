@@ -73,12 +73,29 @@ typedef unsigned long uint64_t;
 #error "No 64-bit type available"
 #endif
 
-typedef uint64_t size_t;
+// Add compile time constants for preprocessors
+#define MY_SIZEOF_SIZE_T MY_SIZEOF_LONG_LONG
+typedef unsigned long long size_t;
+#define MY_SIZEOF_UINTPTR_T MY_SIZEOF_SIZE_T
 typedef size_t uintptr_t;
+#define MY_SIZEOF_PTRDIFF_T MY_SIZEOF_SIZE_T
+// Signed size_t
 typedef int64_t ptrdiff_t;
+#define MY_SIZEOF_UPTRDIFF_T MY_SIZEOF_PTRDIFF_T
 typedef size_t uptrdiff_t;
+#define MY_SIZEOF_INTMAX_T 64
+typedef int64_t intmax_t;
+#define MY_SIZEOF_UINTMAX_T MY_SIZEOF_INTMAX_T
+typedef uint64_t uintmax_t;
 
 /* Limits */
+#ifdef __CHAR_UNSIGNED__
+#define CHAR_MIN 0
+#define CHAR_MAX 255
+#else
+#define CHAR_MIN -128
+#define CHAR_MAX 127
+#endif
 #define INT8_MIN  (-128)
 #define INT8_MAX  (127)
 #define UINT8_MAX (255U)
