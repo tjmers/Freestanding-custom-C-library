@@ -6,11 +6,8 @@
 
 #define __STDIO_BUFFER_SIZE 1024
 
-typedef struct _File {
-  int fd_;
-  uint32_t buffer_index_;
-  char buffer_[__STDIO_BUFFER_SIZE];
-} FILE, *OutputStream;
+
+typedef struct _File FILE, *OutputStream;
 
 extern OutputStream stdout;
 extern OutputStream stderr;
