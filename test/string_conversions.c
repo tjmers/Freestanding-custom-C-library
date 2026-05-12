@@ -222,6 +222,127 @@ static int test_itoa_resumable_across_flushes(void) {
   return 0;
 }
 
+static int test_itoab_zero(void) {
+  char buf[32];
+  int64_t v = 0;
+  uint32_t n = itoab(&v, buf, sizeof(buf));
+  const char exp[] = "0";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "itoab(0) expected \"0\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "itoab zero";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_itoab_basic(void) {
+  char buf[32];
+  int64_t v = 5;
+  uint32_t n = itoab(&v, buf, sizeof(buf));
+  const char exp[] = "101";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "itoab(5) expected \"101\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "itoab basic";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_itoab_negative(void) {
+  char buf[32];
+  int64_t v = -5;
+  uint32_t n = itoab(&v, buf, sizeof(buf));
+  const char exp[] = "-101";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "itoab(-5) expected \"-101\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "itoab negative";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_itoao_basic(void) {
+  char buf[32];
+  int64_t v = 64;
+  uint32_t n = itoao(&v, buf, sizeof(buf));
+  const char exp[] = "100";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "itoao(64) expected \"100\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "itoao basic";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_itoax_lower_upper(void) {
+  char buf[32];
+
+  int64_t v1 = 255;
+  uint32_t n1 = itoax(&v1, buf, sizeof(buf), false);
+  const char exp1[] = "ff";
+  if (!buf_prefix_eq(buf, n1, exp1, sizeof(exp1) - 1)) {
+    const char err[] = "itoax(255, lower) expected \"ff\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+
+  int64_t v2 = 255;
+  uint32_t n2 = itoax(&v2, buf, sizeof(buf), true);
+  const char exp2[] = "FF";
+  if (!buf_prefix_eq(buf, n2, exp2, sizeof(exp2) - 1)) {
+    const char err[] = "itoax(255, upper) expected \"FF\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+
+  const char ok[] = "itoax lower/upper";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_itoax_no_prefix(void) {
+  char buf[32];
+  int64_t v = 15;
+  uint32_t n = itoax(&v, buf, sizeof(buf), true);
+  const char exp[] = "F";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "itoax(15) expected \"F\" (no 0x prefix)";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "itoax no prefix";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_itoax_small_buffer(void) {
+  char buf[1];
+  int64_t v = 0xAB;
+  uint32_t n = itoax(&v, buf, sizeof(buf), false);
+  // Resumable behavior: should write as much as fits and leave remainder in v.
+  if (n != sizeof(buf)) {
+    const char err[] = "itoax partial write should fill provided buffer";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  if (v == 0) {
+    const char err[] = "itoax partial write should leave remainder non-zero";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "itoax partial write leaves remainder";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
 static int test_atoi_zero(void) {
   char s[] = "0";
   if (atoi(s) != 0) {
@@ -306,6 +427,74 @@ static int test_atoi_empty(void) {
   return 0;
 }
 
+static int test_utoa_basic(void) {
+  char buf[32];
+  uint64_t v = 12345;
+  uint32_t n = utoa(&v, buf, sizeof(buf));
+  const char exp[] = "12345";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "utoa(12345) expected \"12345\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "utoa basic";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_utoax_lower_upper(void) {
+  char buf[32];
+  uint64_t v1 = 255;
+  uint32_t n1 = utoax(&v1, buf, sizeof(buf), false);
+  const char exp1[] = "ff";
+  if (!buf_prefix_eq(buf, n1, exp1, sizeof(exp1) - 1)) {
+    const char err[] = "utoax(255, lower) expected \"ff\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  uint64_t v2 = 255;
+  uint32_t n2 = utoax(&v2, buf, sizeof(buf), true);
+  const char exp2[] = "FF";
+  if (!buf_prefix_eq(buf, n2, exp2, sizeof(exp2) - 1)) {
+    const char err[] = "utoax(255, upper) expected \"FF\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "utoax lower/upper";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_utoab_basic(void) {
+  char buf[32];
+  uint64_t v = 5;
+  uint32_t n = utoab(&v, buf, sizeof(buf));
+  const char exp[] = "101";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "utoab(5) expected \"101\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "utoab basic";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
+static int test_utoao_basic(void) {
+  char buf[32];
+  uint64_t v = 64;
+  uint32_t n = utoao(&v, buf, sizeof(buf));
+  const char exp[] = "100";
+  if (!buf_prefix_eq(buf, n, exp, sizeof(exp) - 1)) {
+    const char err[] = "utoao(64) expected \"100\"";
+    report_fail(err, sizeof(err) - 1);
+    return 1;
+  }
+  const char ok[] = "utoao basic";
+  report_ok(ok, sizeof(ok) - 1);
+  return 0;
+}
+
 int main(void) {
   int rc = 0;
 
@@ -317,6 +506,19 @@ int main(void) {
   rc |= test_itoa_int64_min_continuous_chunks();
   rc |= test_itoa_int64_min_noncontiguous_chunks();
   rc |= test_itoa_resumable_across_flushes();
+
+  rc |= test_itoab_zero();
+  rc |= test_itoab_basic();
+  rc |= test_itoab_negative();
+  rc |= test_itoao_basic();
+  rc |= test_itoax_lower_upper();
+  rc |= test_itoax_no_prefix();
+  rc |= test_itoax_small_buffer();
+
+  rc |= test_utoa_basic();
+  rc |= test_utoab_basic();
+  rc |= test_utoao_basic();
+  rc |= test_utoax_lower_upper();
 
   rc |= test_atoi_zero();
   rc |= test_atoi_positive();
