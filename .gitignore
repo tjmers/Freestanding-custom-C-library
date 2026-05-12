@@ -33,3 +33,6 @@ perf.data.old
 
 # Compile commands (can be regenerated)
 compile_commands.json
+
+# Why do I have zip files in here??
+*.zip
