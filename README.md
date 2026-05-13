@@ -31,7 +31,7 @@ Minimal program:
 #include "stdio.h"
 
 int main(void) {
-  puts("Hello from %s!\n", "mylibc");
+  puts("Hello from mylibc!\n");
   return 0;
 }
 ```
