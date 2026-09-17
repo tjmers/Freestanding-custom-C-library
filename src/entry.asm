@@ -5,6 +5,7 @@ default rel
 extern main
 extern __heap_init
 extern __stdio_register_streams
+extern enable_fsrm
 extern exit
 
 global _start:weak
@@ -21,6 +22,24 @@ _start:
   ; Initialize heap
   call __stdio_register_streams
   call __heap_init
+  ; Check if the FSRM memcpy should be used
+  
+  ; Make sure that leaf 7 exists
+  jmp .call_main
+  xor eax, eax
+  cpuid
+  cmp eax, 0x7
+  jl .call_main
+
+  ; Check edx bit 4
+  mov eax, 0x7
+  xor ecx, ecx
+  cpuid
+  test edx, 0x10
+  jz .call_main
+  call enable_fsrm
+
+.call_main:
   ; Move arguments into registers before calling main
   mov rdi, [rbp]
   lea rsi, [rbp + 8]

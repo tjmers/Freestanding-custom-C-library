@@ -1,25 +1,8 @@
 #include "memory.h"
 
-// If FSRM is enabled, we provide an optimized NASM implementation and use a C
-// wrapper to keep the public symbol name stable.
-#ifdef FSRM
-extern void* memcpy_small_fsrm(void *__restrict__ dst, void *__restrict__ src, size_t n);
-#endif
 
-void* memcpy_small(void *__restrict__ dst, void *__restrict__ src, size_t n) {
-#ifdef FSRM
-  return memcpy_small_fsrm(dst, src, n);
-#else
-  void* ret = dst;
-  __asm__ volatile (
-    "rep movsb"
-    : "+D"(dst), "+S"(src), "+c"(n)
-    :
-    : "memory"
-  );
-  return ret;
-#endif
-}
+
+void* (*memcpy_small)(void *__restrict__, void *__restrict__, size_t) = memcpy_large;
 
 // Optimized for different archetectuires
 void* memcpy_large(void *__restrict__ dst, void *__restrict__ src, size_t n) {
@@ -105,6 +88,11 @@ void* memcpy_large(void *__restrict__ dst, void *__restrict__ src, size_t n) {
 
 #elif defined(__SSE2__)
   // SSE2 (baseline on x86-64, always present)
+  char* s = (char*)src;
+  char* d = (char*)dst;
+  for (size_t i = 0; i < n; ++i) {
+    d[i] = s[i];
+  }
 #else
   // scalar fallback
   __asm__ volatile (
