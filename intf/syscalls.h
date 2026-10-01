@@ -9,7 +9,8 @@
 
 int write(unsigned int fd, const char* buf, size_t count);
 void* brk(void* brk);
-void* mmap(size_t length, void* addr, int prot, int flags, int fd, int64_t offset);
+// Raw syscall: returns -errno (not MAP_FAILED) on failure
+void* mmap(void* addr, size_t length, int prot, int flags, int fd, int64_t offset);
 void munmap(void* addr, size_t len);
 void terminate(int error_code);
 pid_t fork();

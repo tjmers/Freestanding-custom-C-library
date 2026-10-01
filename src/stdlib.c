@@ -210,8 +210,9 @@ malloc_after_lock:
     // Now round up to nearest 4KB (page size)
     n = ((n + 4095) & 0xFFFFFFFFFFFFF000ull);
     // Call mmap
-    void* ptr = mmap(n, NULL, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (ptr == MAP_FAILED) {
+    void* ptr = mmap(NULL, n, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    // The raw syscall returns -errno (-4095..-1) on failure
+    if ((uintptr_t)ptr >= (uintptr_t)-4095) {
       __malloc_unlock();
       return NULL;
     }
