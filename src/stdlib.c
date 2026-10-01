@@ -152,7 +152,8 @@ static void init(void* head, size_t size) {
 
 // Extends the heap by n bytes (n >= 32)
 static bool extend(size_t n) {
-  uintptr_t new_end = (uintptr_t)p_brk_ + n;
+  uintptr_t old_end = (uintptr_t)p_brk_;
+  uintptr_t new_end = old_end + n;
 
   // Pad new_end to the nearest 4kb
   new_end += 4095;
@@ -160,39 +161,36 @@ static bool extend(size_t n) {
 
   struct footer_t* bottom = (struct footer_t*)p_brk_ - 2;
   new_end = (uintptr_t)brk((void*)new_end);
-  if ((uintptr_t)p_brk_ == new_end) {
+  if (old_end == new_end) {
     // brk fail
     return false;
   }
   p_brk_ = (void*)new_end;
+  // The heap actually grew by delta (n rounded up to a page), not by n
+  size_t delta = new_end - old_end;
   // Two things need to be moved here
   // 1: dummy header
   // 2: last footer (above the header)
-  // This call to memcpy is undefined if n is less than 32 beause the regions would overlap. 
-  // To combat this, this function will never get called with n < 32 (prevented since its always aligned to 4kb)
-  // Conver p_brk to get bottom
+  // This call to memcpy is undefined if delta is less than 32 beause the regions would overlap.
+  // To combat this, delta is always at least 4kb (since its always aligned to 4kb)
   if (bottom->info.magic != __HEAP_MEMORY_USED_NORMAL) {
-    memcpy_small(bottom, ((char*)bottom) + n, sizeof(struct header_t) * 2);
-    // Move this to the head of the linked list for efficiency purposes
-    // First, remove the current element from the linked list
-
+    // The last block is free, so grow it in place
+    struct header_t* last = header_of(bottom);
+    memcpy_small((char*)bottom + delta, bottom, sizeof(struct footer_t) + sizeof(struct header_t));
+    last->size += delta;
+    footer_of(last)->size = last->size;
   } else {
-    // Just copy the dummy header
-    struct header_t* new_dummy_header = (struct header_t*)((char*)bottom + n) + 1;
-    new_dummy_header = (struct header_t*)bottom + 1;
-
-    // Now create the new header/footer (will be at head)
+    // The old dummy header becomes the header of a new free block
     struct header_t* new_header = (struct header_t*)bottom + 1;
-    new_header->info.next = head_;
-    new_header->size = n - (sizeof(struct header_t) * 2);
-    head_ = new_header;
-
-    // Add the footer
-    struct footer_t* new_footer = (struct footer_t*)new_dummy_header - 1;
-    new_footer->info.prev = NULL;
+    new_header->size = delta - (sizeof(struct header_t) + sizeof(struct footer_t));
+    struct footer_t* new_footer = footer_of(new_header);
     new_footer->size = new_header->size;
-    // Set the new footer to the last footer
-    bottom = new_footer;
+    // (will be at head)
+    insert_into_list(NULL, new_header, new_footer);
+
+    // Add the new dummy header at the new end
+    struct header_t* new_dummy_header = (struct header_t*)new_end - 1;
+    new_dummy_header->info.magic = __HEAP_MEMORY_USED_NORMAL;
   }
   return true;
 }
@@ -238,8 +236,11 @@ malloc_after_lock:
         // Insert into linked list
         // First update the sizes so that footer_of and header_of work correctly
         size_t total_block_size = current->size;
+        // The footer is about to move into what was payload, so carry the prev link over
+        struct header_t* prev = footer_of(current)->info.prev;
         current->size = n;
         footer_of(current)->size = n;
+        footer_of(current)->info.prev = prev;
         next_header->size = total_block_size - n - (sizeof(struct header_t) + sizeof(struct footer_t));
         struct footer_t* next_footer = footer_of(next_header);
         next_footer->size = next_header->size;
@@ -261,7 +262,8 @@ malloc_after_lock:
   if (n < 32) {
     n = 32;
   }
-  if (!extend(n)) {
+  // Leave room for the new block's header and footer
+  if (!extend(n + sizeof(struct header_t) + sizeof(struct footer_t))) {
     __malloc_unlock();
     return NULL;
   }
