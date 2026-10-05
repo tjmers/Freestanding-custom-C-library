@@ -19,10 +19,10 @@ Requires `gcc` and `nasm`. Test binaries are linked against an instrumented vari
 
 ## Usage
 
-Headers live in `intf/`. Link against `build/libmylibc.a` with `-nostdlib`:
+Headers live in `intf/`. Link against `build/libmylibc.a` with `-nostdlib -static -no-pie`. Without `-static -no-pie`, most distros' GCC builds a PIE executable that needs the system's dynamic loader (`ld-linux` or `ld-musl`) to start.
 
 ```
-gcc -nostdlib -fno-builtin -Iintf your_program.c -Lbuild -lmylibc -o your_program
+gcc -nostdlib -static -no-pie -ffreestanding -fno-stack-protector -Iintf your_program.c -Lbuild -lmylibc -o your_program
 ```
 
 Minimal program:
