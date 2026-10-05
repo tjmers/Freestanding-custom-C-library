@@ -1,5 +1,5 @@
 #ifndef __STDLIB_H
-#define __SDTLIB_H
+#define __STDLIB_H
 
 #include "error.h"
 #include "exit.h"
