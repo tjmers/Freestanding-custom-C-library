@@ -9,17 +9,13 @@ void reset_buf(char* buf) {
 }
 
 int main() {
-  // Lets see how long it takes to count to 1000000 (1 million)
 
   struct tms start_tms;
 
   clock_t start = times(&start_tms);
+  struct timespec wait = {5ll, 0ll};
+  nanosleep(&wait, NULL);
 
-  int s = 0;
-  for (int i = 0; i < 1000000; ++i) {
-    s += i;
-    write(1, "potato", 6);
-  }
 
   struct tms end_tms;
   clock_t end = times(&end_tms);
