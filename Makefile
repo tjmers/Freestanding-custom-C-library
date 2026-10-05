@@ -71,6 +71,14 @@ tests: $(TEST_BINS)
 $(TEST_BUILD_DIR)/%: $(TEST_DIR)/%.c $(STATIC_TEST) | $(TEST_BUILD_DIR)
 	$(CC) $(CFLAGS_TEST) $(INCLUDES) $< -L$(BUILD_TEST_DIR) -l$(LIB_NAME_TEST) -nostdlib -o $@
 
+# The printf test pulls its case table in from a separate file.
+$(TEST_BUILD_DIR)/printf: $(TEST_DIR)/printf_cases.inc
+
+# test/printf_test.sh compares stdout byte for byte, so it needs a build linked
+# against the uninstrumented library (the test library logs to stdout).
+$(TEST_BUILD_DIR)/printf_mylibc: $(TEST_DIR)/printf.c $(TEST_DIR)/printf_cases.inc $(STATIC) | $(TEST_BUILD_DIR)
+	$(CC) $(CFLAGS) $(INCLUDES) $< -L$(BUILD_DIR) -l$(LIB_NAME) -nostdlib -o $@
+
 # --- Utility ---
 
 $(BUILD_DIR):
