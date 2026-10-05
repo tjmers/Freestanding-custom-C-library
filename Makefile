@@ -1,6 +1,6 @@
 CC       := gcc
 AS       := nasm
-CFLAGS   := -Wall -Wextra -Wpedantic -g -nostdlib -fno-builtin -O2
+CFLAGS   := -Wall -Wextra -Wpedantic -g -nostdlib -fno-builtin -O2 -std=c17
 ASFLAGS  := -f elf64
 INCLUDES := -Iintf
 
