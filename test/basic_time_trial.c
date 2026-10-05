@@ -40,4 +40,6 @@ int main() {
   n = itoa(&clock_ticks, buf, 64);
   buf[n++] = '\n';
   write(1, buf, n);
+
+  return 0;
 }

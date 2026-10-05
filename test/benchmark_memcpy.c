@@ -28,4 +28,6 @@ int main() {
   buf[n++] = '\n';
 
   write(1, buf, n);
+
+  return 0;
 }
