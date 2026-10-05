@@ -21,10 +21,10 @@ jobs:
             install: apt-get update && apt-get install -y gcc make nasm
           - distro: fedora
             image: fedora:latest
-            install: dnf install -y gcc make nasm findutils
+            install: dnf install -y gcc make nasm findutils diffutils
           - distro: arch
             image: archlinux:latest
-            install: pacman -Syu --noconfirm gcc make nasm
+            install: pacman -Syu --noconfirm gcc make nasm diffutils
           - distro: alpine
             image: alpine:latest
             install: apk add gcc make nasm musl-dev bash coreutils
@@ -38,5 +38,5 @@ jobs:
       - name: Build library and tests
         run: make all
 
-      - name: printf tests
-        run: bash test/printf_test.sh
+      - name: Unit tests
+        run: bash unit_tests.sh

@@ -1,6 +1,6 @@
 // printf test driver.
 //
-// Each case in printf_cases.inc is run in its own process by test/printf_test.sh,
+// Each case in printf_cases.inc is run in its own process by test/printf/printf_test.sh,
 // which compares the bytes written to stdout against the expected output. Cases
 // run in separate processes because a broken formatter may hang or crash, and
 // the library has no way to capture stdout in-process.
@@ -15,9 +15,9 @@
 //   printf NAME             run NAME (exits 3 if NAME is unknown)
 
 #ifndef PRINTF_TEST_HOST_LIBC
-#include "../intf/stdio.h"
-#include "../intf/string.h"
-#include "../intf/syscalls.h"
+#include "../../intf/stdio.h"
+#include "../../intf/string.h"
+#include "../../intf/syscalls.h"
 #define T_PUTS(s) fputs(stdout, s)
 #define T_PUTC(c) fputc(stdout, c)
 #else

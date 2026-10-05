@@ -1,18 +1,30 @@
 #!/bin/bash
 # Runs the printf test suite.
 #
-# Every case in test/printf_cases.inc runs in its own process under a timeout,
+# Every case in test/printf/printf_cases.inc runs in its own process under a timeout,
 # and its stdout is compared byte for byte with the expected output. The same
 # driver is also built against the host glibc. If glibc disagrees with an
 # expected string, the case is reported as BAD-EXPECT: the table is wrong, not
 # the library.
 #
-# Usage: test/printf_test.sh [-v] [name-prefix]
+# Usage: test/printf/printf_test.sh [-v] [name-prefix]
 #   -v           show a byte dump of the expected and actual output on failure
 #   name-prefix  only run cases whose name starts with this (e.g. "d_", "f_inf")
 
 set -u
-cd "$(dirname "$0")/.." || exit 2
+cd "$(dirname "$0")/../.." || exit 2
+
+# A missing tool would otherwise show up as every case failing (e.g. cmp, which
+# comes from diffutils and is not installed by default on Arch).
+missing=()
+for tool in make gcc cmp od timeout mktemp; do
+  command -v "$tool" > /dev/null || missing+=("$tool")
+done
+if [ ${#missing[@]} -ne 0 ]; then
+  echo "printf_test.sh: missing required tools: ${missing[*]}" >&2
+  echo "  (cmp is in the diffutils package; od and timeout are in coreutils)" >&2
+  exit 2
+fi
 
 verbose=0
 if [ "${1:-}" = "-v" ]; then
@@ -21,12 +33,12 @@ if [ "${1:-}" = "-v" ]; then
 fi
 filter="${1:-}"
 
-bin=build/test/printf_mylibc
-ref=build/test/printf_glibc
+bin=build/printf_test/printf_mylibc
+ref=build/printf_test/printf_glibc
 timeout_secs=2
 
 make -s "$bin" || exit 2
-gcc -w -O0 -DPRINTF_TEST_HOST_LIBC -o "$ref" test/printf.c || exit 2
+gcc -w -O0 -DPRINTF_TEST_HOST_LIBC -o "$ref" test/printf/printf.c || exit 2
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT

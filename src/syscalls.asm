@@ -1,6 +1,11 @@
 section .note.GNU-stack noalloc noexec nowrite progbits
 bits 64
 
+; This fixes a bug that is present on NASM 3.0 and 3.1
+%if __NASM_VERSION_ID__ >= 0x03000000
+[dollarhex off]
+%endif
+
 global write
 global brk
 global mmap
