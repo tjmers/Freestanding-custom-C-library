@@ -25,6 +25,11 @@ struct tms {
   clock_t tms_cstime;
 };
 clock_t times(struct tms* buf);
+struct timespec {
+  int64_t tv_sec;
+  int64_t tv_nsec;
+};
+int nanosleep(const struct timespec* req, struct timespec *rem);
 
 
 #endif

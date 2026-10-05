@@ -13,6 +13,7 @@ global munmap
 global terminate
 global abort
 global $times
+global nanosleep
 
 
 section .text
@@ -80,5 +81,10 @@ getpid:
 
 $times:
   mov rax, 0x64
+  syscall
+  ret
+
+nanosleep:
+  mov rax, 0x23
   syscall
   ret
