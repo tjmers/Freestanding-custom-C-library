@@ -1,4 +1,5 @@
 CC       := gcc
+CXX      := g++
 AS       := nasm
 CFLAGS   := -Wall -Wextra -Wpedantic -g -nostdlib -fno-builtin -O2 -std=c17 -ffreestanding -fno-stack-protector
 # Executables are fully static and non-PIE, so they need no dynamic loader.
@@ -8,6 +9,7 @@ INCLUDES := -Iintf
 
 SRC_DIR  := src
 TEST_DIR := test
+TEST_CPP_DIR := test_cpp
 BUILD_DIR := build
 BUILD_TEST_DIR := build_test
 TEST_BUILD_DIR := $(BUILD_DIR)/test
@@ -15,6 +17,7 @@ PRINTF_TEST_DIR := $(TEST_DIR)/printf
 # The printf driver needs a case name argument, so it is kept out of
 # $(TEST_BUILD_DIR), whose binaries are all run without arguments.
 PRINTF_BUILD_DIR := $(BUILD_DIR)/printf_test
+TEST_CPP_BUILD_DIR := $(BUILD_DIR)/test_cpp
 
 LIB_NAME := mylibc
 STATIC   := $(BUILD_DIR)/lib$(LIB_NAME).a
@@ -22,6 +25,12 @@ LIB_NAME_TEST := $(LIB_NAME)_test
 STATIC_TEST   := $(BUILD_TEST_DIR)/lib$(LIB_NAME_TEST).a
 
 CFLAGS_TEST := $(CFLAGS) -D__LIBC_TEST -Wno-unused-function -Wno-unused-variable
+
+# C++ tests check that the C headers and library are usable from C++. There is
+# no libstdc++ or C++ runtime, so exceptions and RTTI are disabled.
+CXXFLAGS := -Wall -Wextra -Wpedantic -g -nostdlib -fno-builtin -O2 -std=c++20 -ffreestanding -fno-stack-protector \
+            -fno-exceptions -fno-rtti -fno-threadsafe-statics -fno-use-cxa-atexit
+CXXFLAGS_TEST := $(CXXFLAGS) -D__LIBC_TEST -Wno-unused-function -Wno-unused-variable
 
 #
 # Collect sources recursively under src/ (POSIX).
@@ -36,10 +45,12 @@ OBJS_TEST := $(patsubst $(SRC_DIR)/%.c,   $(BUILD_TEST_DIR)/%.o, $(SRCS)) \
 TEST_SRCS := $(wildcard $(TEST_DIR)/*.c)
 TEST_BINS := $(patsubst $(TEST_DIR)/%.c, $(TEST_BUILD_DIR)/%, $(TEST_SRCS))
 PRINTF_BINS := $(PRINTF_BUILD_DIR)/printf $(PRINTF_BUILD_DIR)/printf_mylibc
+TEST_CPP_SRCS := $(wildcard $(TEST_CPP_DIR)/*.cpp)
+TEST_CPP_BINS := $(patsubst $(TEST_CPP_DIR)/%.cpp, $(TEST_CPP_BUILD_DIR)/%, $(TEST_CPP_SRCS))
 
-.PHONY: all static static_test tests clean
+.PHONY: all static static_test tests tests_cpp clean
 
-all: static static_test tests
+all: static static_test tests tests_cpp
 
 # --- Library target ---
 
@@ -88,6 +99,14 @@ $(PRINTF_BUILD_DIR)/printf: $(PRINTF_TEST_DIR)/printf.c $(PRINTF_TEST_DIR)/print
 $(PRINTF_BUILD_DIR)/printf_mylibc: $(PRINTF_TEST_DIR)/printf.c $(PRINTF_TEST_DIR)/printf_cases.inc $(STATIC) | $(PRINTF_BUILD_DIR)
 	$(CC) $(CFLAGS) $(INCLUDES) $< -L$(BUILD_DIR) -l$(LIB_NAME) $(LDFLAGS) -o $@
 
+# --- C++ test targets ---
+
+# Compiled with g++ and linked against the gcc-built test library.
+tests_cpp: $(TEST_CPP_BINS)
+
+$(TEST_CPP_BUILD_DIR)/%: $(TEST_CPP_DIR)/%.cpp $(STATIC_TEST) | $(TEST_CPP_BUILD_DIR)
+	$(CXX) $(CXXFLAGS_TEST) $(INCLUDES) $< -L$(BUILD_TEST_DIR) -l$(LIB_NAME_TEST) $(LDFLAGS) -o $@
+
 # --- Utility ---
 
 $(BUILD_DIR):
@@ -101,6 +120,9 @@ $(TEST_BUILD_DIR):
 
 $(PRINTF_BUILD_DIR):
 	mkdir -p $(PRINTF_BUILD_DIR)
+
+$(TEST_CPP_BUILD_DIR):
+	mkdir -p $(TEST_CPP_BUILD_DIR)
 
 clean:
 	rm -rf $(BUILD_DIR) $(BUILD_TEST_DIR)

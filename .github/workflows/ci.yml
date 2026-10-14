@@ -15,19 +15,19 @@ jobs:
         include:
           - distro: ubuntu-24.04
             image: ubuntu:24.04
-            install: apt-get update && apt-get install -y gcc make nasm
+            install: apt-get update && apt-get install -y gcc g++ make nasm
           - distro: debian-12
             image: debian:12
-            install: apt-get update && apt-get install -y gcc make nasm
+            install: apt-get update && apt-get install -y gcc g++ make nasm
           - distro: fedora
             image: fedora:latest
-            install: dnf install -y gcc make nasm findutils diffutils
+            install: dnf install -y gcc gcc-c++ make nasm findutils diffutils
           - distro: arch
             image: archlinux:latest
             install: pacman -Syu --noconfirm gcc make nasm diffutils
           - distro: alpine
             image: alpine:latest
-            install: apk add gcc make nasm musl-dev bash coreutils
+            install: apk add gcc g++ make nasm musl-dev bash coreutils
 
     steps:
       - name: Install toolchain
@@ -40,3 +40,6 @@ jobs:
 
       - name: Unit tests
         run: bash unit_tests.sh
+
+      - name: C++ tests
+        run: bash test_cpp.sh
