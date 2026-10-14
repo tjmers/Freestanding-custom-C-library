@@ -4,7 +4,8 @@
 // C++ has bool, true, and false built in
 #ifndef __cplusplus
 
-typedef unsigned char bool;
+// Use the built in _Bool type
+typedef _Bool bool;
 #define true 1
 #define false 0
 
