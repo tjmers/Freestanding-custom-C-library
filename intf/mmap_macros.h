@@ -1,5 +1,9 @@
 #ifndef __MMAP_MACROS
 #define __MMAP_MACROS
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 /* Protection flags (prot argument) */
 #define PROT_NONE       0x0     // page cannot be accessed
 #define PROT_READ       0x1     // page can be read
@@ -53,4 +57,8 @@
 #define MADV_DONTDUMP       16      // exclude from core dump
 #define MADV_DODUMP         17      // undo MADV_DONTDUMP
 #define MADV_HWPOISON       100     // poison a page (testing only, requires CAP_SYS_ADMIN)
+#ifdef __cplusplus
+}
+#endif
+
 #endif

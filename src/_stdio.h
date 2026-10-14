@@ -1,6 +1,10 @@
 #ifndef __INTERNAL_STDIO_H
 #define __INTERNAL_STDIO_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define __STDIO_FPRINTF_FORMAT_FLAGS_DEFAULT 0x0
 #define __STDIO_FPRINTF_FORMAT_FLAGS_LEFT_ALIGN 0x1
 #define __STDIO_FPRINTF_FORMAT_FLAGS_SHOW_SIGN 0x2
@@ -43,5 +47,9 @@ typedef struct _fprintf_state {
   int length;
   int specifier;
 } fprintf_state;
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,6 +1,10 @@
 #ifndef __STDLIB_H
 #define __STDLIB_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "error.h"
 #include "exit.h"
 #include "stdbool.h"
@@ -29,5 +33,9 @@ int atoi(const char* nptr);
 
 void __malloc_lock(void);
 void __malloc_unlock(void);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -1,6 +1,10 @@
 #ifndef __EXIT_CODES_H
 #define __EXIT_CODES_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stdbool.h"
 #include "syscalls.h"
 
@@ -17,5 +21,9 @@ bool atexit_push(callback_t func);
 callback_t atexit_pop();
 
 void exit(int exit_code);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // __EXIT_CODES_H

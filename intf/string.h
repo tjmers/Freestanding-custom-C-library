@@ -1,6 +1,10 @@
 #ifndef __STRING_H
 #define __STRING_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stdbool.h"
 #include "stdint.h"
 
@@ -12,5 +16,9 @@ char* strtokc(char* begin, char ch);
 bool strtok_end();
 char* strdup(const char* str);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

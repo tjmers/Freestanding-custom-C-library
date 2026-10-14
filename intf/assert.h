@@ -1,6 +1,10 @@
 #ifndef __ASSERT_H
 #define __ASSERT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #undef assert
 #undef static_assert
 
@@ -19,6 +23,10 @@ void __assert_fail(const char *expr, const char *file, unsigned int line,
                    const char *func);
 #define assert(expr)                                                           \
   ((void)((expr) ? 0 : (__assert_fail(#expr, __FILE__, __LINE__, __func__), 0)))
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

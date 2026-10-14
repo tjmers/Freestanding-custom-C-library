@@ -1,6 +1,10 @@
 #ifndef MY_STDINT_H
 #define MY_STDINT_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Detect compiler built-in type sizes */
 #if defined(__SIZEOF_CHAR__)
   #define MY_SIZEOF_CHAR __SIZEOF_CHAR__
@@ -111,5 +115,9 @@ typedef uint64_t uintmax_t;
 #define INT64_MIN  (-9223372036854775807LL-1)
 #define INT64_MAX  (9223372036854775807LL)
 #define UINT64_MAX (18446744073709551615ULL)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* MY_STDINT_H */

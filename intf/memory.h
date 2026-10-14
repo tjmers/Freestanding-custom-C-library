@@ -1,6 +1,10 @@
 #ifndef __MEMORY_H
 #define __MEMORY_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stdint.h"
 
 // Meant for larger copies
@@ -18,5 +22,9 @@ void* memmove_large(void* dst, void* src, size_t n);
 // Implemented in assembly in src/memcpy_small_fsrm.asm
 // Returns dst
 void* memcpy_small_fsrm(void* src, void* dst, size_t n);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

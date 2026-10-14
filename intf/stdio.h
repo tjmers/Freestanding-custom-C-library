@@ -1,6 +1,10 @@
 #ifndef __STDIO_H
 #define __STDIO_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stdbool.h"
 #include "stdint.h"
 
@@ -24,5 +28,9 @@ bool fputi(OutputStream out, int i);
 
 void __stdio_register_streams();
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

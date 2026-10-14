@@ -4,6 +4,10 @@
 #ifndef __SYSCALLS_H
 #define __SYSCALLS_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "stddef.h"
 #include "mmap_macros.h"
 
@@ -31,5 +35,9 @@ struct timespec {
 };
 int nanosleep(const struct timespec* req, struct timespec *rem);
 
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
